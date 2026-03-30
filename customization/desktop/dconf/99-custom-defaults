@@ -1,0 +1,45 @@
+# 禁用锁屏
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+
+# 禁用空闲自动息屏
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+# 启用/禁用扩展
+[org/gnome/shell]
+enabled-extensions=['hide-panel@custom', 'ding@rastersoft.com', 'tiling-assistant@ubuntu.com', 'ubuntu-appindicators@ubuntu.com']
+disabled-extensions=['ubuntu-dock@ubuntu.com']
+welcome-dialog-last-shown-version='99.0'
+
+# 桌面图标排列：左上角，隐藏主目录/回收站/snap等
+[org/gnome/shell/extensions/ding]
+start-corner='top-left'
+keep-arranged=true
+sort-special-folders=true
+arrangeorder='NAME'
+show-home=false
+show-trash=false
+show-volumes=false
+
+# 自定义壁纸
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/home_background.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/home_background.jpg'
+picture-options='zoom'
+
+# 禁用 Super 键触发概览，改用 Ctrl+Alt+Shift+H
+[org/gnome/mutter]
+overlay-key=''
+
+[org/gnome/shell/keybindings]
+toggle-overview=['<Ctrl><Alt><Shift>h']
+
+# 拦截 XF86Search 键（Fn+放大镜）绑定到空命令
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['\/org\/gnome\/settings-daemon\/plugins\/media-keys\/custom-keybindings\/custom0\/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+name='Disable Search Key'
+command='true'
+binding='XF86Search'

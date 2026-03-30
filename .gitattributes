@@ -1,0 +1,6 @@
+customization/packages/app-debs/ngiq-trolley-pro-server_*.deb filter=lfs diff=lfs merge=lfs -text
+customization/packages/app-debs/ngiq-base-server-host-pro_*.deb filter=lfs diff=lfs merge=lfs -text
+customization/packages/app-debs/ngiq-max-desktop_*.deb filter=lfs diff=lfs merge=lfs -text
+customization/packages/app-debs/ngiq-mysql-pro_*.deb filter=lfs diff=lfs merge=lfs -text
+customization/packages/app-debs/ngiq-hand-eye_*.deb filter=lfs diff=lfs merge=lfs -text
+customization/packages/app-debs/slbsproxy_*.deb filter=lfs diff=lfs merge=lfs -text

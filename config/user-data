@@ -1,0 +1,31 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: zh_CN.UTF-8
+  timezone: Asia/Shanghai
+  keyboard:
+    layout: us
+  identity:
+    hostname: ubuntu-pc
+    username: nguser
+    password: "$6$eM/hiVG31l2axpAW$qb44OcfA1KhCRmE.jfmGWuzrByfqffY0F5qAf9IkW6eDzg.Ty.5t7naHCkYdFBzqTHNBf3dxBYX.g/LrvspS11"
+  oem:
+    install: false
+  network:
+    version: 2
+    ethernets: {}
+  source:
+    id: ubuntu-desktop-minimal
+  # early-commands: 在分区前运行 RAID 检测，处理 sdb/sdc 两块机械盘
+  early-commands:
+    - /usr/local/bin/raid-check.sh
+  storage:
+    layout:
+      name: direct
+      match:
+        path: /dev/nvme0n1
+  ssh:
+    install-server: true
+    allow-pw: true
+  late-commands:
+    - /usr/local/bin/post-install/main.sh

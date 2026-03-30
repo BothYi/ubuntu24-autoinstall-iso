@@ -1,0 +1,7 @@
+{
+  "uuid": "hide-panel@custom",
+  "name": "Hide Panel",
+  "description": "Hide the top panel",
+  "shell-version": ["46"],
+  "version": 1
+}

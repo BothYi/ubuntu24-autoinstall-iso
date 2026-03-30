@@ -1,0 +1,27 @@
+# 预装软件包列表（一行一个包名）
+# 基础工具
+vim
+curl
+net-tools
+openssh-server
+
+# DKMS 编译依赖
+dkms
+build-essential
+linux-headers-generic
+
+# Docker 运行时
+# docker.io
+# docker-compose-v2
+
+# 可根据需要添加更多包
+# htop
+# tmux
+# git
+libfuse2
+smartmontools
+facter
+jq
+xdotool
+ntpdate
+libjsoncpp-dev

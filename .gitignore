@@ -1,0 +1,20 @@
+# 构建产出（大文件）
+output/
+snapshots/
+build/
+
+# 临时修复脚本
+fix_*.py
+
+# 备份
+*.bak
+
+# squashfs-upload 编译产物
+squashfs-upload/squashfs-upload
+squashfs-upload/*.exe
+
+# macOS
+.DS_Store
+
+# deb 包（体积大，单独管理）
+*.deb
