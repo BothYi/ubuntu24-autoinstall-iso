@@ -1,0 +1,41 @@
+variables:
+  # runner 上提前就绪的路径（由外部流程负责下载）
+  ASSET_SQUASHFS: /opt/iso-assets/minimal.squashfs
+  ASSET_DEBS_DIR: /opt/iso-assets/debs
+  ASSET_BASE_DIR: /opt/iso-assets/base
+
+stages:
+  - build-image
+  - build-iso
+
+# ---- 构建 builder 镜像（仅 Dockerfile 变化时触发）----
+build-docker:
+  stage: build-image
+  image: docker:24
+  services:
+    - docker:24-dind
+  rules:
+    - changes:
+        - docker/Dockerfile
+  script:
+    - docker build -t ubuntu24-builder:latest -f docker/Dockerfile .
+
+# ---- 组装 ISO ----
+build-iso:
+  stage: build-iso
+  image: ubuntu24-builder:latest
+  rules:
+    - when: always
+  script:
+    # 准备工作目录
+    - mkdir -p build/casper customization/packages/app-debs
+    - rsync -a ${ASSET_BASE_DIR}/ build/
+    - cp ${ASSET_SQUASHFS} build/casper/minimal.squashfs
+    - '[ -d "${ASSET_DEBS_DIR}" ] && cp ${ASSET_DEBS_DIR}/*.deb customization/packages/app-debs/ || true'
+    # 组装 ISO
+    - make nocloud nocloud-extra grub-patch iso
+  artifacts:
+    name: ubuntu-24.04.4-autoinstall-${CI_PIPELINE_ID}
+    paths:
+      - output/ubuntu-24.04.4-autoinstall.iso
+    expire_in: 7 days
