@@ -5,7 +5,7 @@ PROJECT_ROOT  := $(shell pwd)
 
 # CI 环境下通过环境变量注入（本地默认值保持原来路径）
 WORKDIR       ?= /home/nguser/ubuntu24
-ISO_ORIG      ?= $(WORKDIR)/ubuntu-24.04.4-desktop-amd64.iso
+ISO_ORIG      ?= $(WORKDIR)/ubuntu-24.04.3-desktop-amd64.iso
 BUILD_DIR     ?= $(WORKDIR)/build
 SQUASHFS_DIR  ?= $(WORKDIR)/squashfs-root
 SQUASHFS_FILE := $(BUILD_DIR)/casper/minimal.squashfs
@@ -20,4 +20,4 @@ DKMS_DIR      := $(PROJECT_ROOT)/customization/dkms
 DESKTOP_DIR   := $(PROJECT_ROOT)/customization/desktop
 
 # 输出
-ISO_NEW ?= $(PROJECT_ROOT)/output/ubuntu-24.04.4-autoinstall.iso
+ISO_NEW ?= $(PROJECT_ROOT)/output/ubuntu-24.04.3-autoinstall.iso

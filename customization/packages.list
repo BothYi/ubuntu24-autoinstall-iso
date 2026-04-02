@@ -9,6 +9,7 @@ openssh-server
 dkms
 build-essential
 linux-headers-generic
+linux-generic
 
 # Docker 运行时
 # docker.io

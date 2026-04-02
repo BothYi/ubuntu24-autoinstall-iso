@@ -1,16 +1,20 @@
 # ============================================================
-# ISO 构建: nocloud / grub-patch / iso / build + snapshot
+# ISO 组装: nocloud / grub-patch / nocloud-extra / scripts / iso
 # ============================================================
-nocloud: ## [5/7] 安装 autoinstall 配置
-	@echo "=== [5/7] 安装 autoinstall 配置 ==="
+scripts: ## 拷贝自定义脚本到 ISO（/cdrom/scripts/）
+	@echo "=== 安装自定义脚本 ==="
+	mkdir -p "$(BUILD_DIR)/scripts/late"
+	cp "$(PROJECT_ROOT)/customization/scripts/raid-check.sh" "$(BUILD_DIR)/scripts/"
+	cp "$(PROJECT_ROOT)/customization/scripts/late/"*.sh "$(BUILD_DIR)/scripts/late/"
+	chmod +x "$(BUILD_DIR)/scripts/"*.sh "$(BUILD_DIR)/scripts/late/"*.sh
+	@echo "  ✅ 脚本已拷贝到 ISO"
+
+nocloud: ## 拷贝 autoinstall 配置
+	@echo "=== 安装 autoinstall 配置 ==="
 	mkdir -p "$(BUILD_DIR)/nocloud"
 	cp "$(PROJECT_ROOT)/config/user-data" "$(BUILD_DIR)/nocloud/user-data"
 	cp "$(PROJECT_ROOT)/config/meta-data" "$(BUILD_DIR)/nocloud/meta-data"
 	@echo "  ✅ nocloud 配置已拷贝"
-
-grub-patch: ## [6/7] 修改 GRUB 配置注入 autoinstall
-	@echo "=== [6/7] 修改 GRUB 配置 ==="
-	@bash "$(PROJECT_ROOT)/customization/scripts/grub-patch.sh" "$(BUILD_DIR)"
 
 nocloud-extra: ## 拷贝 app-debs 到 ISO install/ 目录
 	@APP_DEBS="$(PROJECT_ROOT)/customization/packages/app-debs"; \
@@ -20,8 +24,12 @@ nocloud-extra: ## 拷贝 app-debs 到 ISO install/ 目录
 		echo "  ✅ app-debs 已拷贝到 ISO"; \
 	fi
 
-iso: ## [7/7] 重建 ISO 镜像
-	@echo "=== [7/7] 重建 ISO ==="
+grub-patch: ## 修改 GRUB 配置注入 autoinstall
+	@echo "=== 修改 GRUB 配置 ==="
+	@bash "$(PROJECT_ROOT)/customization/scripts/grub-patch.sh" "$(BUILD_DIR)"
+
+iso: ## 重建 ISO 镜像
+	@echo "=== 重建 ISO ==="
 	@echo "  更新 md5sum.txt..."
 	@cd "$(BUILD_DIR)" && find . -type f -not -name md5sum.txt -not -path './boot.catalog' -not -path './EFI/*' -exec md5sum {} \; > md5sum.txt
 	mkdir -p "$(PROJECT_ROOT)/output"
@@ -50,45 +58,9 @@ iso: ## [7/7] 重建 ISO 镜像
 	@echo ""
 	@echo "=== ✅ ISO 构建完成 ==="
 	ls -lh "$(ISO_NEW)"
+	@echo "  保存 squashfs 快照..."
+	@mkdir -p "$(PROJECT_ROOT)/snapshots"
+	@cp "$(BUILD_DIR)/casper/minimal.squashfs" "$(PROJECT_ROOT)/snapshots/minimal-$$(date +%Y%m%d-%H%M).squashfs"
+	@echo "  ✅ 快照已保存: $(PROJECT_ROOT)/snapshots/minimal-$$(date +%Y%m%d-%H%M).squashfs"
 
-build: extract squashfs-unpack squashfs-install squashfs-repack nocloud nocloud-extra grub-patch iso ## 一键完整构建（需 sudo）
-	@echo ""
-	@echo "🎉 全部完成！ISO 路径: $(ISO_NEW)"
-	@# === 保存 squashfs 快照和描述文件 ===
-	@SNAP_DATE=$$(date +%Y%m%d-%H%M); \
-	SNAP_DIR="$(PROJECT_ROOT)/snapshots"; \
-	mkdir -p "$$SNAP_DIR"; \
-	echo "  保存 squashfs 快照: minimal-$$SNAP_DATE.squashfs"; \
-	cp "$(BUILD_DIR)/casper/minimal.squashfs" "$$SNAP_DIR/minimal-$$SNAP_DATE.squashfs"; \
-	echo "# Squashfs 快照: $$SNAP_DATE" > "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## 基础信息" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "| 项 | 值 |" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "|---|---|" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "| 构建时间 | $$(date '+%Y-%m-%d %H:%M:%S') |" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "| squashfs 大小 | $$(du -h $(BUILD_DIR)/casper/minimal.squashfs | cut -f1) |" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "| ISO 大小 | $$(du -h $(ISO_NEW) 2>/dev/null | cut -f1) |" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## 预装软件包" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	grep -v "^#" "$(PACKAGES_LIST)" | grep -v "^$$" | sed "s/^/- /" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## DKMS 驱动" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	ls $(DKMS_DIR)/*.deb 2>/dev/null | xargs -I{} basename {} | sed "s/^/- /" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md" || echo "- (无)" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## 桌面定制" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	cat "$(PROJECT_ROOT)/customization/desktop/dconf/99-custom-defaults" | grep "^\[" | sed "s/^/- /" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## Docker" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- docker-ce (阿里云镜像源)" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- docker-compose ($$($(PROJECT_ROOT)/customization/docker-compose version 2>/dev/null || echo 预编译二进制))" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## 快捷键" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- Ctrl+Alt+Shift+H = 活动概览" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- Super/Fn+放大镜 = 已禁用" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "## 启动与登录" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- GDM 自动登录 (nguser)" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- 跳过首次向导" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "- Plymouth Logo: 银河脑科学" >> "$$SNAP_DIR/minimal-$$SNAP_DATE.md"; \
-	echo "  ✅ 快照已保存: $$SNAP_DIR/minimal-$$SNAP_DATE.*"
-
+.PHONY: scripts nocloud nocloud-extra grub-patch iso build extract squashfs-unpack squashfs-install squashfs-repack

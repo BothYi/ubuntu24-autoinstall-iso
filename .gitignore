@@ -16,5 +16,3 @@ squashfs-upload/*.exe
 # macOS
 .DS_Store
 
-# deb 包（体积大，单独管理）
-*.deb

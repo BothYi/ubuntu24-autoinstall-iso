@@ -30,6 +30,17 @@ squashfs-unpack: ## [2/7] 解压 minimal.squashfs 并挂载系统目录
 		sudo rm -rf "$(SQUASHFS_DIR)"; \
 	fi
 	sudo unsquashfs -d "$(SQUASHFS_DIR)" "$(SQUASHFS_FILE)"
+	@# === 合并 standard 层（解决 Ubuntu 24.04 多层 dpkg/status 覆盖问题）===
+	@STANDARD_SQ="$(BUILD_DIR)/casper/minimal.standard.squashfs"; \
+	if [ -f "$$STANDARD_SQ" ] && [ $$(stat -c%s "$$STANDARD_SQ") -gt 10000 ]; then \
+		echo "  合并 standard 层..."; \
+		sudo unsquashfs -d /tmp/standard-layer "$$STANDARD_SQ"; \
+		sudo rsync -a /tmp/standard-layer/ "$(SQUASHFS_DIR)/"; \
+		sudo rm -rf /tmp/standard-layer; \
+		echo "  ✅ standard 层已合并到 squashfs-root"; \
+	else \
+		echo "  ⏭️ standard 层不存在或已为空，跳过合并"; \
+	fi
 	@echo "  挂载系统目录..."
 	sudo mount --bind /dev "$(SQUASHFS_DIR)/dev"
 	sudo mount --bind /proc "$(SQUASHFS_DIR)/proc"
@@ -59,6 +70,11 @@ squashfs-install: ## [3/7] chroot 安装软件包 + DKMS
 		echo "  安装包: $$PACKAGES"; \
 		sudo chroot "$(SQUASHFS_DIR)" /bin/bash -c "apt-get update && apt-get install -y $$PACKAGES && apt-get clean && rm -rf /var/lib/apt/lists/*"; \
 	fi
+	@# --- FAKE UNAME START ---
+	@echo "  创建 fake uname 以骗过 dkms 编译..."
+	@sudo mv "$(SQUASHFS_DIR)/bin/uname" "$(SQUASHFS_DIR)/bin/uname.original"
+	@sudo bash -c 'printf "#!/bin/sh\nif [ \"\$$1\" = \"-r\" ]; then ls /lib/modules | grep generic | head -1; else /bin/uname.original \"\$$@\"; fi\n" > "$(SQUASHFS_DIR)/bin/uname"'
+	@sudo chmod +x "$(SQUASHFS_DIR)/bin/uname"
 	@# 安装 DKMS deb 包
 	@if [ -d "$(DKMS_DIR)" ] && ls "$(DKMS_DIR)"/*.deb &>/dev/null; then \
 		echo "  安装 DKMS 包..."; \
@@ -105,11 +121,6 @@ squashfs-install: ## [3/7] chroot 安装软件包 + DKMS
 	@sudo cp $(PROJECT_ROOT)/customization/docker-compose "$(SQUASHFS_DIR)/usr/local/bin/docker-compose"
 	@sudo chmod +x "$(SQUASHFS_DIR)/usr/local/bin/docker-compose"
 	@echo "  ✅ Docker 安装完成"
-	@# 备份 docker dpkg 元数据（安装器会清除 docker-ce 的 dpkg 记录）
-	@echo "  备份 docker dpkg 元数据..."
-	@sudo mkdir -p "$(SQUASHFS_DIR)/opt/docker-dpkg-backup"
-	@sudo bash -c 'cd $(SQUASHFS_DIR) && for pkg in docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-ce-rootless-extras docker-compose-plugin smartmontools libfuse2 facter jq xdotool ntpdate; do awk "/^Package: $${pkg}$$/,/^$$/" var/lib/dpkg/status > opt/docker-dpkg-backup/$${pkg}.status; cp var/lib/dpkg/info/$${pkg}.* opt/docker-dpkg-backup/ 2>/dev/null || true; done'
-	@echo "  ✅ docker dpkg 元数据已备份"
 	@# === 安装 RAID 检测脚本 ===
 	@echo "  安装 raid-check.sh..."
 	@sudo cp $(PROJECT_ROOT)/customization/scripts/raid-check.sh "$(SQUASHFS_DIR)/usr/local/bin/raid-check.sh"
@@ -165,7 +176,18 @@ squashfs-install: ## [3/7] chroot 安装软件包 + DKMS
 	@sudo bash -c 'printf "[org.gnome.desktop.input-sources]\nsources=[(\x27xkb\x27, \x27us\x27), (\x27ibus\x27, \x27libpinyin\x27)]\ncurrent=0\n" >> "$(SQUASHFS_DIR)/etc/dconf/db/local.d/99-custom-defaults"'
 	@echo "  ✅ 中文输入法已安装"
 	@sudo chroot "$(SQUASHFS_DIR)" /bin/bash -c "dconf update" 2>/dev/null || true
+	@# === 创建 apt-get 离线拦截器 ===
+	@echo "  创建 apt-get 拦截器以绕过 subiquity 离线内核失败..."
+	@sudo bash -c 'printf "#!/bin/bash\nif [[ \"\$$*\" == *\"linux-generic\"* ]] || [[ \"\$$*\" == *\"linux-\"* ]]; then\n  echo \"[Offline Bypass] Skipping apt-get for kernel: \$$*\"\n  exit 0\nfi\nexec /usr/bin/apt-get \"\$$@\"\n" > "$(SQUASHFS_DIR)/usr/local/sbin/apt-get"'
+	@sudo chmod +x "$(SQUASHFS_DIR)/usr/local/sbin/apt-get"
+	
+	@# --- FAKE UNAME CLEANUP ---
+	@echo "  恢复原始 uname..."
+	@if [ -f "$(SQUASHFS_DIR)/bin/uname.original" ]; then \
+		sudo mv "$(SQUASHFS_DIR)/bin/uname.original" "$(SQUASHFS_DIR)/bin/uname"; \
+	fi
 	@echo "  ✅ 软件包安装完成"
+
 
 squashfs-repack: umount ## [4/7] 卸载挂载并重新打包 squashfs
 	@echo "=== [4/7] 重新打包 squashfs ==="
@@ -183,4 +205,14 @@ squashfs-repack: umount ## [4/7] 卸载挂载并重新打包 squashfs
 	sudo rm -f "$(SQUASHFS_FILE)"
 	sudo mksquashfs "$(SQUASHFS_DIR)" "$(SQUASHFS_FILE)" -comp xz -noappend
 	@echo "  ✅ squashfs 打包完成: $$(du -h $(SQUASHFS_FILE) | cut -f1)"
-
+	@# === 替换 standard 层为空 ===
+	@echo "  创建空 standard 层..."
+	@mkdir -p /tmp/empty-standard
+	@sudo mksquashfs /tmp/empty-standard "$(BUILD_DIR)/casper/minimal.standard.squashfs" -noappend 2>/dev/null
+	@rm -rf /tmp/empty-standard
+	@echo "  ✅ minimal.standard.squashfs 已替换为空层"
+	@# === 更新 manifest ===
+	@echo "  更新 manifest..."
+	@sudo chroot "$(SQUASHFS_DIR)" dpkg-query -W --showformat='$${Package}\t$${Version}\n' > "$(BUILD_DIR)/casper/minimal.manifest" 2>/dev/null || true
+	@echo "" > "$(BUILD_DIR)/casper/minimal.standard.manifest"
+	@echo "  ✅ manifest 已更新"

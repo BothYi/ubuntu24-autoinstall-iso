@@ -4,7 +4,7 @@
 # 运行环境：autoinstall late-commands，/target 为已安装的系统
 
 set -eo pipefail
-SCRIPT_DIR="/usr/local/bin/post-install"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG="/target/var/log/post-install.log"
 
 log() { echo "[post-install] $*" | tee -a "$LOG"; }

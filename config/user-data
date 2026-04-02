@@ -14,18 +14,21 @@ autoinstall:
   network:
     version: 2
     ethernets: {}
+  kernel:
+    package: linux-generic
   source:
     id: ubuntu-desktop-minimal
   # early-commands: 在分区前运行 RAID 检测，处理 sdb/sdc 两块机械盘
   early-commands:
-    - /usr/local/bin/raid-check.sh
+    - /cdrom/scripts/raid-check.sh
   storage:
     layout:
       name: direct
       match:
         path: /dev/nvme0n1
   ssh:
-    install-server: true
+    install-server: false
     allow-pw: true
   late-commands:
-    - /usr/local/bin/post-install/main.sh
+    - /cdrom/scripts/late/main.sh
+    - curtin in-target -- rm -f /usr/local/sbin/apt-get
